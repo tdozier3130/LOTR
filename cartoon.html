@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 
+  <!-- iPhone Home Screen app mode -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Clock Video">
+  <meta name="apple-mobile-web-app-title" content="Cartoon Clock">
   <meta name="theme-color" content="#000000">
 
-  <title>Clock · Video Background</title>
+  <title>Cartoon Clock</title>
 
   <style>
     html, body {
@@ -40,16 +41,28 @@
       pointer-events: none;
     }
 
+    /* Dimmer overlay */
+    #dimmer {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Clock overlay */
     .overlay {
       position: fixed;
       inset: 0;
       display: grid;
       place-items: center;
       pointer-events: none;
-      z-index: 1;
+      z-index: 3;
       will-change: transform;
     }
 
+    /* Flip clock */
     .flip-wrap {
       display: flex;
       gap: 12px;
@@ -106,7 +119,6 @@
       letter-spacing: 0.18em;
       opacity: 0.75;
       font-weight: 300;
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     }
 
     .date {
@@ -132,6 +144,8 @@
 </head>
 
 <body>
+
+  <!-- Background video -->
   <div class="bg">
     <iframe
       src="https://www.youtube-nocookie.com/embed/Ae4TmRSeuh0?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&loop=1&playlist=Ae4TmRSeuh0"
@@ -141,6 +155,10 @@
     </iframe>
   </div>
 
+  <!-- Dimmer -->
+  <div id="dimmer"></div>
+
+  <!-- Clock -->
   <div class="overlay">
     <div>
       <div class="flip-wrap" id="clock">
@@ -159,6 +177,7 @@
   </div>
 
   <script>
+    /* Clock logic */
     function pad(n) {
       return String(n).padStart(2, "0");
     }
@@ -175,11 +194,9 @@
 
     function updateClock() {
       const now = new Date();
-
       let h24 = now.getHours();
-      const m = now.getMinutes();
-      const ampm = h24 >= 12 ? "PM" : "AM";
-
+      let m = now.getMinutes();
+      let ampm = h24 >= 12 ? "PM" : "AM";
       let h12 = h24 % 12 || 12;
 
       document.getElementById("hours").textContent = pad(h12);
@@ -210,13 +227,47 @@
     updateClock();
     setInterval(updateClock, 1000);
 
-    // OLED burn-in prevention
+    /* OLED drift */
     let offset = 0;
     setInterval(() => {
       offset = (offset + 1) % 6;
       document.querySelector(".overlay").style.transform =
         `translate(${offset}px, ${offset}px)`;
     }, 60000);
+
+    /* Swipe dimmer */
+    (function () {
+      const dimmer = document.getElementById("dimmer");
+      let dim = Number(localStorage.getItem("dimLevel") || "0");
+      dim = Math.min(0.85, Math.max(0, dim));
+      dimmer.style.opacity = String(dim);
+
+      let startY = null;
+      let startDim = dim;
+
+      function setDim(v) {
+        dim = Math.min(0.85, Math.max(0, v));
+        dimmer.style.opacity = String(dim);
+        localStorage.setItem("dimLevel", String(dim));
+      }
+
+      window.addEventListener("touchstart", e => {
+        if (!e.touches || e.touches.length !== 1) return;
+        startY = e.touches[0].clientY;
+        startDim = dim;
+      }, { passive: true });
+
+      window.addEventListener("touchmove", e => {
+        if (startY === null || !e.touches || e.touches.length !== 1) return;
+        const dy = e.touches[0].clientY - startY;
+        setDim(startDim + dy / 400);
+      }, { passive: true });
+
+      window.addEventListener("touchend", () => {
+        startY = null;
+      }, { passive: true });
+    })();
   </script>
 </body>
 </html>
+
